@@ -8,36 +8,21 @@ type Mermaid = {
 };
 
 document.addEventListener("DOMContentLoaded", async function () {
-	const chart = `
-	Limestone --[24:12]--> Iron
-	Sulfur --[12:12]--> Copper
-	Quartz --[12:10]--> Copper
-	Sulfur --[2:12]--> Limestone
-	Limestone --[36:12]--> Coal
-	Iron --[18:12]--> Coal
-	Iron --[30:12]--> Sulfur
-	Coal --[20:12]--> Sulfur
-	Copper --[15:12]--> Caterium
-	Quartz --[12:12]--> Caterium
-	Coal --[24:12]--> Quartz
-	Bauxite --[10:12]--> Quartz
-	Copper --[18:12]--> Bauxite
-	Caterium --[15:12]--> Bauxite
-	Caterium --[12:12]--> Nitrogen
-	Bauxite --[10:12]--> Nitrogen
-	Bauxite --[48:12]--> Uranium`;
+	/** Arrow between array items when joined */
 	const arrow = " \u21A3 ";
+	/** Checkmark */
 	const yes = "\u2705";
+	/** Cross */
 	const no = "\u274C";
 
 	const transmuter = new Transmute(Defaults.transmuteChains());
 	const allChains = transmuter.findPossibleChains();
 
-	async function getDiagram(orientation: "TD" | "LR"): Promise<string> {
-		const result = await mermaid.render("diag" + Date.now(), `flowchart ${orientation}\r\n${chart}`);
-		return result.svg;
-	}
-
+	/**
+	 * Shows which target values are possible for a given input
+	 * @param sourceBox Source item select box
+	 * @param filterBox Target item select box
+	 */
 	function filterValues(sourceBox: HTMLSelectElement, filterBox: HTMLSelectElement) {
 		const chains = allChains.filter(v => v.start === sourceBox.value && v.chain.length > 0);
 		const optFilter = filterBox.querySelectorAll("option");
@@ -55,6 +40,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 		}
 	}
 
+	/**
+	 * Renders the selected transmutation chain
+	 */
 	function renderConversion() {
 		const selFrom = document.querySelector("#selInput") as HTMLSelectElement;
 		const selTo = document.querySelector("#selOutput") as HTMLSelectElement;
@@ -133,6 +121,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 	//mermaid
 	await mermaid.initialize({ startOnLoad: false });
-	document.getElementById("diagH")!.innerHTML = await getDiagram("LR");
-	document.getElementById("diagV")!.innerHTML = await getDiagram("TD");
+	document.getElementById("diagH")!.innerHTML = await Diagram.getDiagram("LR", Defaults.transmuteChains());
+	document.getElementById("diagV")!.innerHTML = await Diagram.getDiagram("TD", Defaults.transmuteChains());
 });

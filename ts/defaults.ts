@@ -1,5 +1,7 @@
 "use strict";
+/** Holds transmute chains */
 namespace Defaults {
+	/** Returns a new copy of the default satisfactory transmutation chain items */
 	export function transmuteChains(): TransmuteChainItem[] {
 		return [
 			{ from: "Limestone", to: "Iron", cost: { output: 12, input: 24 } },

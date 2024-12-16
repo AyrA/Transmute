@@ -1,28 +1,59 @@
 "use strict";
+/** A single possible step in a transmutation chain */
 type TransmuteChainItem = {
+	/** Source item */
 	from: string;
+	/** Target item */
 	to: string;
+	/** Conversion cost */
 	cost: Relation;
 }
 
+/** Represents a single complete transmutation chain from one item to another */
 type TransmuteChain = {
+	/** Start item */
 	start: string;
+	/** End item */
 	end: string;
+	/** Chain to convert "start" into "end" */
 	chain: TransmuteChainItem[];
+	/** Total conversion cost */
 	factor: Relation;
 }
 
+/** Holds multiple chains for the same item combination */
 type TransmuteChains = {
+	/** Start item */
 	start: string;
+	/** End item */
 	end: string;
+	/** Conversion chains */
 	chain: TransmuteChain[];
 }
 
-type Relation = { output: number, input: number }
+/** Represents a conversion ratio */
+type Relation = {
+	/** Number of items created in a single conversion step */
+	output: number;
+	/** Number of items consumed in a single conversion step */
+	input: number;
+}
 
+/**
+ * Provides means to calculate transmutation chains.
+ * 
+ * Graph theory: This can recursively find all possible paths from one node to another.
+ * Unlike most algorithms it can work with unidirectional paths
+*/
 class Transmute {
+	/** Holds all possible transmutation steps */
 	#chain: TransmuteChainItem[];
 
+	/**
+	 * Gets the final conversion ratio from a chain
+	 * @param chain Chain items
+	 * @returns Total conversion factor
+	 */
 	#getFactor(chain: TransmuteChainItem[]): Relation {
 		let output = 1;
 		let input = 1;
@@ -36,11 +67,25 @@ class Transmute {
 		return { output, input };
 	}
 
-	#getDivider(rel: Relation) {
+	/**
+	 * Gets the divider factor for a relation
+	 * @returns Divider factor
+	 */
+	#getDivider(rel: Relation): number {
+		if (rel.input === 0) {
+			throw new Error("Division by zero");
+		}
 		return rel.output / rel.input;
 	}
 
-	#findChain(item: TransmuteChainItem, target: string, forbidden: string[], found: string[][]) {
+	/**
+	 * Finds all chains from "item" to "target"
+	 * @param item Last processed chain item
+	 * @param target Final target to reach
+	 * @param forbidden Chain sources forbidden to be used
+	 * @param found Chains that have already been found
+	 */
+	#findChain(item: TransmuteChainItem, target: string, forbidden: string[], found: string[][]): void {
 		if (item.to === target) {
 			found.push(forbidden.concat([target]));
 			return;
@@ -53,6 +98,15 @@ class Transmute {
 		forbidden.pop();
 	}
 
+	/**
+	 * Sorts two chain items. This function is for use in Array.prototype.sort()
+	 * 
+	 * It will sort a better factor above a worse factor.
+	 * Identical factors are additionally sorted by chain length to prefer shorter chains
+	 * @param a Chain A
+	 * @param b Chain B
+	 * @returns Sort result
+	 */
 	#sortResults(a: TransmuteChain, b: TransmuteChain): number {
 		const f1 = this.#getDivider(a.factor);
 		const f2 = this.#getDivider(b.factor);
@@ -63,18 +117,32 @@ class Transmute {
 		return f1 > f2 ? -1 : 1;
 	}
 
-	get possibleInputs() {
+	/**	Get all possible input items */
+	get possibleInputs(): string[] {
 		return this.#chain.map(v => v.from).filter((v, i, a) => a.indexOf(v) === i).sort();
 	}
 
-	get possibleOutputs() {
+	/**	Gets all possible output items */
+	get possibleOutputs(): string[] {
 		return this.#chain.map(v => v.to).filter((v, i, a) => a.indexOf(v) === i).sort();
 	}
 
+	/**
+	 * Constructs a new instance for the given items
+	 * @param chainItems Permitted chain items
+	 */
 	constructor(chainItems: ArrayLike<TransmuteChainItem>) {
+		//Clone the items to prevent changes from the outside
 		this.#chain = structuredClone(Array.from(chainItems));
 	}
 
+	/**
+	 * Finds all possible transmutation chains from all possible inputs to all possible outputs
+	 * 
+	 * In theory, one can use this function and then never use another function,
+	 * because it will contain all chains already
+	 * @returns Transmutation chains
+	 */
 	findPossibleChains(): TransmuteChains[] {
 		const ret = [] as TransmuteChains[];
 		const i = this.possibleInputs;
@@ -94,6 +162,15 @@ class Transmute {
 		return ret;
 	}
 
+	/**
+	 * Find all possible chains from the given source to the given destination sorted from best to worst.
+	 * 
+	 * This can find loops if "from" and "to" are the same value,
+	 * otherwise loops are not permitted
+	 * @param from Source item
+	 * @param to Target item
+	 * @returns Possible chains
+	 */
 	findAllChains(from: string, to: string): TransmuteChain[] {
 		const starts = this.#chain.filter(v => v.from === from);
 		if (!starts.length) {
@@ -120,84 +197,17 @@ class Transmute {
 		return ret.sort((a, b) => this.#sortResults(a, b));
 	}
 
+	/**
+	 * Finds the best chain in regards to conversion ratio from all possible chains
+	 * @param from Source item
+	 * @param to Target item
+	 * @returns Best chain, or null if none found
+	 */
 	findBestChain(from: string, to: string): TransmuteChain | null {
 		const items = this.findAllChains(from, to);
 		if (!items.length) {
 			return null;
 		}
-		let best = items.shift()!;
-		let bestFactor = this.#getDivider(this.#getFactor(best.chain));
-
-		while (items.length) {
-			const current = items.shift()!;
-			const currentFactor = this.#getDivider(this.#getFactor(current.chain));
-			if (currentFactor > bestFactor) {
-				best = current;
-				bestFactor = currentFactor;
-			}
-		}
-		return best;
+		return items[0];
 	}
 }
-
-/*
-
-declare var process: NodeProc;
-type NodeProc = { argv: string[] };
-
-if (process.argv.length === 4) {
-	const from = process.argv[2];
-	const to = process.argv[3];
-	const tm = new Transmute(Defaults.transmuteChains());
-	const all = tm.findAllChains(process.argv[2], process.argv[3]);
-	const best = tm.findBestChain(process.argv[2], process.argv[3]);
-
-	console.log(`Possible inputs: ${tm.possibleInputs}`);
-	console.log(`Possible outputs: ${tm.possibleOutputs}`);
-
-	console.log("=== Best result ===");
-	if (best) {
-		const bestResult = new Result(best);
-		console.log(best);
-		console.log(`Turns ${bestResult.ratio.input} ${from} into ${bestResult.ratio.output} ${to} (Factor: ${Math.round(bestResult.ratio.output / bestResult.ratio.input * 1000) / 1000})`);
-		console.log(`Input rate: ${bestResult.inputPerMinute}/min`);
-	}
-	else {
-		console.log(`There is no path from ${from} to ${to}`);
-	}
-	console.log("=== All results (ordered best to worst) ===");
-	if (all.length) {
-		for (let result of all) {
-			const bestResult = new Result(result);
-			console.log(`Turns ${bestResult.ratio.input} ${from} into ${bestResult.ratio.output} ${to} (Factor: ${Math.round(bestResult.ratio.output / bestResult.ratio.input * 1000) / 1000})`);
-		}
-	}
-	else {
-		console.log(`There is no path from ${from} to ${to}`);
-	}
-}
-else {
-	console.log("node transmute.js <from> <to>");
-}
-//*/
-
-/*
-flowchart LR
-	Limestone --[24:12]--> Iron
-	Sulfur --[12:12]--> Copper
-	Quartz --[12:10]--> Copper
-	Sulfur --[2:12]--> Limestone
-	Limestone --[36:12]--> Coal
-	Iron --[18:12]--> Coal
-	Iron --[30:12]--> Sulfur
-	Coal --[20:12]--> Sulfur
-	Copper --[15:12]--> Caterium
-	Quartz --[12:12]--> Caterium
-	Coal --[24:12]--> Quartz
-	Bauxite --[10:12]--> Quartz
-	Copper --[18:12]--> Bauxite
-	Caterium --[15:12]--> Bauxite
-	Caterium --[12:12]--> Nitrogen
-	Bauxite --[10:12]--> Nitrogen
-	Bauxite --[48:12]--> Uranium
-*/
