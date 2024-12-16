@@ -1,0 +1,14 @@
+{
+	"compileOnSave": true,
+	"compilerOptions": {
+		"target": "ESNext",
+		"removeComments": true,
+		"inlineSourceMap": true,
+		"noImplicitAny": true,
+		"strict": true,
+		"outFile": "js/transmute.js"
+	},
+	"include": [
+		"ts/*.ts"
+	]
+}
